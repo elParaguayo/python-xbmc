@@ -21,15 +21,17 @@ class XBMCJsonTransport(XBMCTransport):
     self.id = 0
 
   def execute(self, method, *args, **kwargs):
-
-    # Use HTTP authentication from 
-    # http://forum.xbmc.org/showthread.php?tid=127759&pid=1346728#pid1346728
-    base64string = base64.encodestring('%s:%s' % (self.username, self.password)).replace('\n', '')
     header = {
         'Content-Type' : 'application/json',
-        'User-Agent' : 'python-xbmc',
-        'Authorization': 'Basic %s' % (base64string)
+        'User-Agent' : 'python-xbmc'        
         }
+    
+    # Use HTTP authentication from 
+    # http://forum.xbmc.org/showthread.php?tid=127759&pid=1346728#pid1346728
+    if self.password is not None and self.username is not None:
+      base64string = base64.encodestring('%s:%s' % (self.username, self.password)).replace('\n', '')
+      header['Authorization'] = 'Basic %s' % (base64string)
+    
     # Params are given as a dictionnary
     if len(args) == 1:
       args=args[0]
