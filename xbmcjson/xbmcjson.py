@@ -3,6 +3,7 @@
 import urllib, urllib2
 import json
 from StringIO import StringIO
+import base64
 
 PLAYER_VIDEO=1
 
@@ -20,9 +21,14 @@ class XBMCJsonTransport(XBMCTransport):
     self.id = 0
 
   def execute(self, method, *args, **kwargs):
+
+    # Use HTTP authentication from 
+    # http://forum.xbmc.org/showthread.php?tid=127759&pid=1346728#pid1346728
+    base64string = base64.encodestring('%s:%s' % (self.username, self.password)).replace('\n', '')
     header = {
         'Content-Type' : 'application/json',
-        'User-Agent' : 'python-xbmc'
+        'User-Agent' : 'python-xbmc',
+        'Authorization': 'Basic %s' % (base64string)
         }
     # Params are given as a dictionnary
     if len(args) == 1:
@@ -38,25 +44,26 @@ class XBMCJsonTransport(XBMCTransport):
     params['params']=args
 
     values=json.dumps(params)
-    # HTTP Authentication
-    password_mgr = urllib2.HTTPPasswordMgrWithDefaultRealm() 
-    password_mgr.add_password(None, self.url, self.username, self.password) 
-    auth_handler = urllib2.HTTPBasicAuthHandler(password_mgr)
-    opener = urllib2.build_opener(auth_handler) 
-    urllib2.install_opener(opener)
 
     data = values
-    req = urllib2.Request(self.url, data, header)
-    response = urllib2.urlopen(req)
-    the_page = response.read()
-    if len(the_page) > 0 :
-      return json.load(StringIO(the_page))
-    else:
-      return None # for readability
+    
+    try:
+      req = urllib2.Request(self.url, data, header)
+      response = urllib2.urlopen(req)
+      the_page = response.read()
+      if len(the_page) > 0 :
+        return json.load(StringIO(the_page))
+      else:
+        return None # for readability
+    # I know it's bad practice not to use exception type here
+    # So sue me!
+    # This catches all errors eg authentication error, page not found etc etc
+    except:
+      return None
 
 class XBMC(object):
   """XBMC client"""
-  def __init__(self, url, username='xbmc', password='xbmc'):
+  def __init__(self, url, username=None, password=None):
     self.transport = XBMCJsonTransport(url, username, password)
     # Dynamic namespace class instanciation
     for cl in namespaces:
@@ -64,6 +71,18 @@ class XBMC(object):
       exec(s)
     def execute(self, *args, **kwargs):
       self.transport.execute(*args, **kwargs)
+
+    self.pong = self.Ping()
+
+  def Ping(self):
+    result = self.JSONRPC.Ping()
+    if result:
+      return result.get("result") == "pong"
+    else:
+      return False
+
+  def __nonzero__(self):
+    return self.pong
 
 class XBMCNamespace(object):
   """Base class for XBMC namespace."""
